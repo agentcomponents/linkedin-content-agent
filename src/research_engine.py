@@ -4,13 +4,15 @@ import json
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
+from bs4 import BeautifulSoup
+import os
+from dotenv import load_dotenv
+
+# Make praw optional
 try:
     import praw
 except ImportError:
     praw = None
-from bs4 import BeautifulSoup
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -27,17 +29,17 @@ class ResearchEngine:
         self.reddit_client = self._init_reddit()
         
     def _init_reddit(self) -> Optional:
-    """Initialize Reddit client if credentials available"""
-    if praw is None:
-        return None
-    try:
-        return praw.Reddit(
-            client_id=os.getenv('REDDIT_CLIENT_ID', ''),
-            client_secret=os.getenv('REDDIT_CLIENT_SECRET', ''),
-            user_agent='LinkedInAgent/1.0'
-        )
-    except:
-        return None
+        """Initialize Reddit client if credentials available"""
+        if praw is None:
+            return None
+        try:
+            return praw.Reddit(
+                client_id=os.getenv('REDDIT_CLIENT_ID', ''),
+                client_secret=os.getenv('REDDIT_CLIENT_SECRET', ''),
+                user_agent='LinkedInAgent/1.0'
+            )
+        except:
+            return None
     
     def research_topic(self, topic: str) -> Dict[str, Any]:
         """
