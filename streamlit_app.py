@@ -24,25 +24,11 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
-    .feature-box {
-        background-color: #F8FAFC;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 4px solid #2563EB;
-        margin: 1rem 0;
-    }
     .metric-card {
         background-color: #EBF4FF;
         padding: 1rem;
         border-radius: 8px;
         text-align: center;
-    }
-    .success-badge {
-        background-color: #10B981;
-        color: white;
-        padding: 0.2rem 0.8rem;
-        border-radius: 15px;
-        font-size: 0.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -164,25 +150,34 @@ def main():
     with tab3:
         st.subheader("How the Agent Works")
         
-        # Architecture diagram (text-based)
-        st.markdown("""
-        ```
-        🔍 Trend Detection → 📊 Multi-Source Research → ✅ Fact Verification → 📝 Content Generation → 👤 Human Approval
-        ```
-        """)
+        # Architecture diagram
+        st.code("🔍 Trend Detection → 📊 Multi-Source Research → ✅ Fact Verification → 📝 Content Generation → 👤 Human Approval")
         
         st.markdown("### Process Flow")
         
-        steps = [
-            {"title": "1. Trend Detection", "desc": "Scans 27+ trending topics across tech platforms daily with momentum scoring"},
-            {"title": "2. Multi-Source Research", "desc": "Aggregates insights from TechCrunch, Hacker News, Reddit, and Wired automatically"},
-            {"title": "3. Fact Verification", "desc": "Cross-references claims across multiple sources with 95%+ accuracy rate"},
-            {"title": "4. Content Generation", "desc": "Creates 3 unique content variations with quality scoring and optimization"},
-            {"title": "5. Human Approval", "desc": "Sends formatted preview for review before publishing"}
-        ]
+        # Step 1
+        st.markdown("#### 1. Trend Detection")
+        st.write("Scans 27+ trending topics across tech platforms daily with momentum scoring")
+        st.write("")
         
-        for step in steps:
-            st.markdown(f'<div class="feature-box"><h4>{step["title"]}</h4><p>{step["desc"]}</p></div>', unsafe_allow_html=True)
+        # Step 2  
+        st.markdown("#### 2. Multi-Source Research")
+        st.write("Aggregates insights from TechCrunch, Hacker News, Reddit, and Wired automatically")
+        st.write("")
+        
+        # Step 3
+        st.markdown("#### 3. Fact Verification") 
+        st.write("Cross-references claims across multiple sources with 95%+ accuracy rate")
+        st.write("")
+        
+        # Step 4
+        st.markdown("#### 4. Content Generation")
+        st.write("Creates 3 unique content variations with quality scoring and optimization")
+        st.write("")
+        
+        # Step 5
+        st.markdown("#### 5. Human Approval")
+        st.write("Sends formatted preview for review before publishing")
     
     with tab4:
         st.subheader("Example Research Results")
@@ -241,26 +236,29 @@ def research_topic(topic):
             st.info("Demo data not available. The full version would research this topic in real-time.")
 
 def display_research_results(data, topic):
-    """Display formatted research results"""
+    """Display formatted research results with full width"""
     
     st.subheader(f"Research Results: {topic.title()}")
     
-    # Research summary - use full width
+    # Research summary - full width
     if 'summary' in data:
         st.markdown("**Research Summary:**")
         st.write(data['summary'])
+        st.write("")
     
+    # Key insights - full width
     if 'key_insights' in data:
         st.markdown("**Key Insights:**")
         for insight in data['key_insights']:
             st.markdown(f"• {insight}")
+        st.write("")
     
-    # Metrics in organized columns
+    # Research metrics in columns
     if 'metrics' in data:
         st.markdown("**Research Metrics:**")
-        col1, col2, col3, col4 = st.columns(4)
         metrics = data['metrics']
         
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Sources", metrics.get('sources_count', 0))
         with col2:
@@ -269,14 +267,17 @@ def display_research_results(data, topic):
             st.metric("Discussions", metrics.get('discussions_found', 0))
         with col4:
             st.metric("Confidence", f"{metrics.get('confidence_score', 0):.1f}/10")
+        
+        st.write("")
     
-    # Content variations
+    # Content variations - full width
     if 'content_variations' in data:
-        st.subheader("Generated Content Variations")
+        st.markdown("**Generated Content Variations**")
         
         for i, content in enumerate(data['content_variations'], 1):
             with st.expander(f"Content Variation {i} - Score: {content.get('quality_score', 'N/A')}"):
                 st.write(content.get('text', 'Content not available'))
+                st.write("")
                 
                 if 'sources' in content:
                     st.markdown("**Sources:**")
@@ -284,6 +285,7 @@ def display_research_results(data, topic):
                         st.markdown(f"• {source}")
     
     # Download option
+    st.write("")
     st.download_button(
         "📥 Download Full Research Data",
         data=json.dumps(data, indent=2),
