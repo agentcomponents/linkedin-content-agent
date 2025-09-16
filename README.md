@@ -85,9 +85,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 🏢 About AgentComponents
 Built by AgentComponents - Making AI automation practical for real businesses.
 
-📞 Contact
-LinkedIn: Your LinkedIn
-Email: your.email@example.com
-Website: AgentComponents.com
+Contact
+
+Email: agentcomponents@gmail.com
+
 ⭐ Star this repo if you found it helpful!
 
