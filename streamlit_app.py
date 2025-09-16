@@ -246,7 +246,7 @@ def display_research_results(data, topic):
     st.subheader(f"Research Results: {topic.title()}")
     
     # Research summary
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         if 'summary' in data:
