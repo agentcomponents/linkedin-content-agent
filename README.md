@@ -1,4 +1,5 @@
 LinkedIn Content Intelligence Agent
+
 An autonomous AI agent that researches trending topics and generates fact-verified LinkedIn content with multi-source intelligence gathering.
 
 ✨ Features
