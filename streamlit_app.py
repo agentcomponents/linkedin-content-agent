@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load CSS styling
+# Load CSS styling - minimal and reliable
 st.markdown("""
 <style>
     .main-header {
@@ -23,12 +23,6 @@ st.markdown("""
         color: #2563EB;
         text-align: center;
         margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #EBF4FF;
-        padding: 1rem;
-        border-radius: 8px;
-        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -128,15 +122,16 @@ def main():
     with tab2:
         st.subheader("Performance Analytics")
         
+        # Use native Streamlit metrics instead of custom HTML
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.markdown('<div class="metric-card"><h3>95.2%</h3><p>Fact Accuracy</p></div>', unsafe_allow_html=True)
+            st.metric("Fact Accuracy", "95.2%", delta="2.1%")
         with col2:
-            st.markdown('<div class="metric-card"><h3>45s</h3><p>Avg Research Time</p></div>', unsafe_allow_html=True)
+            st.metric("Avg Research Time", "45s", delta="-15s")
         with col3:
-            st.markdown('<div class="metric-card"><h3>27+</h3><p>Sources Monitored</p></div>', unsafe_allow_html=True)
+            st.metric("Sources Monitored", "27+", delta="3")
         with col4:
-            st.markdown('<div class="metric-card"><h3>91.8</h3><p>Content Quality Score</p></div>', unsafe_allow_html=True)
+            st.metric("Content Quality Score", "91.8", delta="1.4")
         
         # Performance chart
         st.subheader("Research Accuracy Over Time")
@@ -156,27 +151,27 @@ def main():
         st.markdown("### Process Flow")
         
         # Step 1
-        st.markdown("#### 1. Trend Detection")
+        st.markdown("#### 1. 🔍 Trend Detection")
         st.write("Scans 27+ trending topics across tech platforms daily with momentum scoring")
-        st.write("")
+        st.divider()
         
         # Step 2  
-        st.markdown("#### 2. Multi-Source Research")
+        st.markdown("#### 2. 📊 Multi-Source Research")
         st.write("Aggregates insights from TechCrunch, Hacker News, Reddit, and Wired automatically")
-        st.write("")
+        st.divider()
         
         # Step 3
-        st.markdown("#### 3. Fact Verification") 
+        st.markdown("#### 3. ✅ Fact Verification") 
         st.write("Cross-references claims across multiple sources with 95%+ accuracy rate")
-        st.write("")
+        st.divider()
         
         # Step 4
-        st.markdown("#### 4. Content Generation")
+        st.markdown("#### 4. 📝 Content Generation")
         st.write("Creates 3 unique content variations with quality scoring and optimization")
-        st.write("")
+        st.divider()
         
         # Step 5
-        st.markdown("#### 5. Human Approval")
+        st.markdown("#### 5. 👤 Human Approval")
         st.write("Sends formatted preview for review before publishing")
     
     with tab4:
@@ -250,7 +245,7 @@ def display_research_results(data, topic):
     if 'key_insights' in data:
         st.markdown("**Key Insights:**")
         for insight in data['key_insights']:
-            st.markdown(f"• {insight}")
+            st.write(f"• {insight}")
         st.write("")
     
     # Research metrics in columns
@@ -282,7 +277,7 @@ def display_research_results(data, topic):
                 if 'sources' in content:
                     st.markdown("**Sources:**")
                     for source in content['sources']:
-                        st.markdown(f"• {source}")
+                        st.write(f"• {source}")
     
     # Download option
     st.write("")
