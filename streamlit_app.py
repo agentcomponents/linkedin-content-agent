@@ -245,25 +245,30 @@ def display_research_results(data, topic):
     
     st.subheader(f"Research Results: {topic.title()}")
     
-    # Research summary
-    col1, col2 = st.columns([3, 1])
+    # Research summary - use full width
+if 'summary' in data:
+    st.markdown("**Research Summary:**")
+    st.write(data['summary'])
+
+if 'key_insights' in data:
+    st.markdown("**Key Insights:**")
+    for insight in data['key_insights']:
+        st.markdown(f"• {insight}")
+
+# Metrics in columns only if needed
+if 'metrics' in data:
+    st.markdown("**Research Metrics:**")
+    col1, col2, col3, col4 = st.columns(4)
+    metrics = data['metrics']
     
     with col1:
-        if 'summary' in data:
-            st.markdown("**Research Summary:**")
-            st.write(data['summary'])
-        
-        if 'key_insights' in data:
-            st.markdown("**Key Insights:**")
-            for insight in data['key_insights']:
-                st.markdown(f"• {insight}")
-    
+        st.metric("Sources", metrics.get('sources_count', 0))
     with col2:
-        if 'metrics' in data:
-            st.markdown("**Research Metrics:**")
-            metrics = data['metrics']
-            for key, value in metrics.items():
-                st.metric(key.replace('_', ' ').title(), value)
+        st.metric("Articles", metrics.get('articles_analyzed', 0))
+    with col3:
+        st.metric("Discussions", metrics.get('discussions_found', 0))
+    with col4:
+        st.metric("Confidence", f"{metrics.get('confidence_score', 0):.1f}/10")
     
     # Content variations
     if 'content_variations' in data:
