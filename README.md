@@ -31,12 +31,12 @@ Source Coverage: 4 major tech publications + social platforms
 🚀 Quick Start
 Prerequisites
 Python 3.9+
-OpenAI API key
+OpenAI API key (optional for demo)
 Basic understanding of AI agents
 Installation
 Clone the repository
 bash
-   git clone https://github.com/yourusername/linkedin-content-agent.git
+   git clone https://github.com/agentcomponents/linkedin-content-agent.git
    cd linkedin-content-agent
 Install dependencies
 bash
@@ -48,12 +48,12 @@ bash
 Run the Streamlit app
 bash
    streamlit run streamlit_app.py
-🔧 Configuration
+⚙️ Configuration
 Create a .env file in the root directory:
 
 env
 OPENAI_API_KEY=your_openai_api_key_here
-CLAUDE_API_KEY=your_claude_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 📈 Usage Examples
 Research a Trending Topic
 python
@@ -85,8 +85,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 🏢 About AgentComponents
 Built by AgentComponents - Making AI automation practical for real businesses.
 
-Contact
-
+📞 Contact
+LinkedIn: https://www.linkedin.com/in/agentcomponents/
 Email: agentcomponents@gmail.com
 
 ⭐ Star this repo if you found it helpful!
