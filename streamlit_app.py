@@ -5,6 +5,10 @@ import os
 from datetime import datetime
 from src.research_engine import ResearchEngine
 from src.content_generator import ContentGenerator
+from src.free_apis import FreeAPIManager
+from src.database import DatabaseManager
+from src.security import SecurityManager
+from src.monitoring import MonitoringManager
 import pandas as pd
 
 # Page configuration
@@ -15,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load CSS styling - minimal and reliable
+# Load CSS styling
 st.markdown("""
 <style>
     .main-header {
@@ -24,8 +28,34 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
+    .feedback-container {
+        background-color: #F8FAFC;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Initialize managers
+@st.cache_resource
+def get_database_manager():
+    return DatabaseManager()
+
+@st.cache_resource
+def get_security_manager():
+    db = get_database_manager()
+    return SecurityManager(db)
+
+@st.cache_resource
+def get_api_manager():
+    return FreeAPIManager()
+
+@st.cache_resource
+def get_monitoring_manager():
+    db = get_database_manager()
+    security = get_security_manager()
+    return MonitoringManager(db, security)
 
 # Load cached examples
 @st.cache_data
@@ -45,10 +75,115 @@ def load_demo_metrics():
         "content_quality_score": 91.8
     }
 
+def show_terms_of_service():
+    """Display terms of service modal"""
+    with st.expander("📋 Terms of Service & Privacy Policy"):
+        st.markdown("""
+        **Terms of Service**
+        
+        By using this demo, you agree to:
+        - Use the service for legitimate research purposes only
+        - Not attempt to abuse or overload the system
+        - Understand that AI-generated content may contain inaccuracies
+        - Accept that we collect anonymous usage data for improvement
+        
+        **Privacy Policy**
+        
+        We collect:
+        - Anonymous usage statistics (topics researched, frequency)
+        - Technical data (API usage, error rates)
+        - Optional feedback ratings
+        
+        We do NOT collect:
+        - Personal identifying information
+        - Email addresses or contact details
+        - Content of your generated posts beyond research topics
+        
+        Data is stored securely and used only for service improvement.
+        """)
+
+def collect_user_feedback(topic: str, content_variations: list):
+    """Collect user feedback on generated content"""
+    st.markdown('<div class="feedback-container">', unsafe_allow_html=True)
+    st.subheader("💬 Rate This Research")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        rating = st.select_slider(
+            "How helpful was this research?",
+            options=[1, 2, 3, 4, 5],
+            value=4,
+            format_func=lambda x: "⭐" * x
+        )
+        
+        feedback_text = st.text_area(
+            "Additional feedback (optional)",
+            placeholder="What could we improve?",
+            max_chars=500
+        )
+    
+    with col2:
+        if len(content_variations) > 1:
+            best_variation = st.selectbox(
+                "Which content variation was best?",
+                range(1, len(content_variations) + 1),
+                format_func=lambda x: f"Variation {x}"
+            )
+        else:
+            best_variation = 1
+    
+    if st.button("Submit Feedback", type="secondary"):
+        db = get_database_manager()
+        security = get_security_manager()
+        client_id = security.get_client_ip()
+        
+        db.log_user_feedback(
+            client_id=client_id,
+            topic=topic,
+            rating=rating,
+            feedback_text=feedback_text if feedback_text else None,
+            content_variation=best_variation
+        )
+        
+        st.success("Thank you for your feedback!")
+        st.balloons()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def main():
+    # Initialize components
+    db = get_database_manager()
+    security = get_security_manager()
+    api_manager = get_api_manager()
+    monitoring = get_monitoring_manager()
+    
+    # Check if this is admin access
+    if st.query_params.get("admin") == "true":
+        security.require_admin()
+        monitoring.show_admin_dashboard()
+        
+        if st.sidebar.button("🚪 Logout"):
+            security.logout_admin()
+            st.rerun()
+        
+        return
+    
     # Header
     st.markdown('<h1 class="main-header">🤖 LinkedIn Content Intelligence Agent</h1>', unsafe_allow_html=True)
     st.markdown("### Autonomous AI agent that researches trending topics and generates fact-verified LinkedIn content")
+    
+    # Terms of service
+    show_terms_of_service()
+    
+    # Check rate limiting
+    client_id = security.get_client_ip()
+    rate_limit = security.check_ip_rate_limit(client_id)
+    
+    if not rate_limit['allowed']:
+        st.error(f"⚠️ Rate limit exceeded. Please try again after {rate_limit['reset_time'].strftime('%H:%M')}")
+        st.info(f"Daily requests remaining: {rate_limit['daily_remaining']}")
+        st.stop()
     
     # Sidebar
     with st.sidebar:
@@ -67,6 +202,17 @@ def main():
         st.metric("Accuracy Rate", f"{metrics['accuracy_rate']}%")
         st.metric("Avg Processing Time", f"{metrics['avg_processing_time']}s")
         st.metric("Content Quality", f"{metrics['content_quality_score']}/100")
+        
+        # Rate limit info
+        st.header("🔒 Usage Info")
+        st.info(f"Requests remaining today: {rate_limit['daily_remaining']}")
+        
+        # Live API status
+        can_use_live = api_manager.can_use_live_research()
+        if can_use_live:
+            st.success("✅ Live AI research available")
+        else:
+            st.warning("⚠️ Using cached examples (API limits reached)")
         
         st.header("🚀 About AgentComponents")
         st.markdown("""
@@ -95,8 +241,11 @@ def main():
             # Research button
             if st.button("🔍 Research This Topic", type="primary", use_container_width=True):
                 if topic:
-                    st.session_state.research_topic = topic
-                    st.session_state.show_results = True
+                    if rate_limit['allowed']:
+                        st.session_state.research_topic = topic
+                        st.session_state.show_results = True
+                    else:
+                        st.error("Rate limit exceeded")
                 else:
                     st.warning("Please enter a topic to research")
             
@@ -105,20 +254,33 @@ def main():
             col_ex1, col_ex2, col_ex3 = st.columns(3)
             with col_ex1:
                 if st.button("AI Automation", use_container_width=True):
-                    st.session_state.research_topic = "AI automation"
-                    st.session_state.show_results = True
+                    if rate_limit['allowed']:
+                        st.session_state.research_topic = "AI automation"
+                        st.session_state.show_results = True
+                    else:
+                        st.error("Rate limit exceeded")
             with col_ex2:
                 if st.button("Remote Work", use_container_width=True):
-                    st.session_state.research_topic = "remote work"
-                    st.session_state.show_results = True
+                    if rate_limit['allowed']:
+                        st.session_state.research_topic = "remote work"
+                        st.session_state.show_results = True
+                    else:
+                        st.error("Rate limit exceeded")
             with col_ex3:
                 if st.button("Fintech", use_container_width=True):
-                    st.session_state.research_topic = "fintech"
-                    st.session_state.show_results = True
+                    if rate_limit['allowed']:
+                        st.session_state.research_topic = "fintech"
+                        st.session_state.show_results = True
+                    else:
+                        st.error("Rate limit exceeded")
         
         with col2:
             st.subheader("Demo Status")
-            st.info("**Demo Mode Active** \n\nShowing pre-researched examples for instant results. Full version provides unlimited real-time research.")
+            
+            if can_use_live:
+                st.success("**Live AI Research Active** \n\nFirst requests use real AI APIs. After limits, shows cached examples.")
+            else:
+                st.info("**Demo Mode Active** \n\nAPI limits reached. Showing cached examples. Resets daily.")
             
             if st.button("📧 Get Full Version"):
                 st.success("Thanks for your interest! We'll notify you when the full version launches.")
@@ -131,7 +293,7 @@ def main():
     with tab2:
         st.subheader("Performance Analytics")
         
-        # Use native Streamlit metrics instead of custom HTML
+        # Use native Streamlit metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Fact Accuracy", "95.2%", delta="2.1%")
@@ -159,29 +321,20 @@ def main():
         
         st.markdown("### Process Flow")
         
-        # Step 1
-        st.markdown("#### 1. 🔍 Trend Detection")
-        st.write("Scans 27+ trending topics across tech platforms daily with momentum scoring")
-        st.divider()
+        # Steps with better formatting
+        steps = [
+            ("🔍 Trend Detection", "Scans 27+ trending topics across tech platforms daily with momentum scoring"),
+            ("📊 Multi-Source Research", "Aggregates insights from TechCrunch, Hacker News, Reddit, and Wired automatically"),
+            ("✅ Fact Verification", "Cross-references claims across multiple sources with 95%+ accuracy rate"),
+            ("📝 Content Generation", "Creates 3 unique content variations with quality scoring and optimization"),
+            ("👤 Human Approval", "Sends formatted preview for review before publishing")
+        ]
         
-        # Step 2  
-        st.markdown("#### 2. 📊 Multi-Source Research")
-        st.write("Aggregates insights from TechCrunch, Hacker News, Reddit, and Wired automatically")
-        st.divider()
-        
-        # Step 3
-        st.markdown("#### 3. ✅ Fact Verification") 
-        st.write("Cross-references claims across multiple sources with 95%+ accuracy rate")
-        st.divider()
-        
-        # Step 4
-        st.markdown("#### 4. 📝 Content Generation")
-        st.write("Creates 3 unique content variations with quality scoring and optimization")
-        st.divider()
-        
-        # Step 5
-        st.markdown("#### 5. 👤 Human Approval")
-        st.write("Sends formatted preview for review before publishing")
+        for i, (title, description) in enumerate(steps, 1):
+            st.markdown(f"#### {i}. {title}")
+            st.write(description)
+            if i < len(steps):
+                st.divider()
     
     with tab4:
         st.subheader("Example Research Results")
@@ -197,25 +350,116 @@ def main():
             st.info("Loading examples...")
 
 def research_topic(topic):
-    """Handle topic research with progress indicators"""
+    """Handle topic research with security and monitoring"""
     
-    # Load cached examples
+    # Initialize managers
+    db = get_database_manager()
+    security = get_security_manager()
+    api_manager = get_api_manager()
     examples = load_cached_examples()
+    
+    client_id = security.get_client_ip()
     topic_key = topic.lower().strip()
+    
+    # Log the request
+    security.log_request(client_id, "research", topic)
+    
+    # Content safety check
+    safety_check = security.content_safety_check(topic)
+    if not safety_check['safe']:
+        st.error("⚠️ Content safety issue detected. Please try a different topic.")
+        st.warning("Issues found: " + ", ".join(safety_check['issues']))
+        return
     
     # Progress bar
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # Simulate research process
+    # Check if we can use live APIs
+    can_use_live = api_manager.can_use_live_research()
+    
+    if can_use_live:
+        # Real research steps
+        steps = [
+            "Checking content safety...",
+            "Verifying API availability...",
+            "Analyzing topic with AI...",
+            "Gathering insights...",
+            "Generating content variations...",
+            "Running safety checks...",
+            "Finalizing results..."
+        ]
+        
+        for i, step in enumerate(steps):
+            status_text.text(step)
+            progress_bar.progress((i + 1) / len(steps))
+            time.sleep(0.5)
+        
+        # Try real research
+        try:
+            real_data = api_manager.research_with_gemini(topic)
+            
+            if real_data:
+                # Content safety check on generated content
+                content_safety = security.content_safety_check(str(real_data))
+                
+                if content_safety['safe']:
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.success("✅ Live AI research completed!")
+                    
+                    # Generate content variations
+                    content_variations = api_manager.generate_content_with_hf(topic, real_data)
+                    
+                    # Safety check content variations
+                    if content_variations:
+                        safe_variations = []
+                        for variation in content_variations:
+                            var_safety = security.content_safety_check(variation['text'])
+                            if var_safety['safe']:
+                                variation['text'] = var_safety['sanitized_text']
+                                safe_variations.append(variation)
+                        content_variations = safe_variations
+                    
+                    # Format real research data
+                    formatted_data = {
+                        'topic': topic,
+                        'summary': real_data.get('summary', ''),
+                        'key_insights': real_data.get('key_insights', []),
+                        'metrics': {
+                            'sources_count': 1,
+                            'articles_analyzed': 1,
+                            'discussions_found': 1,
+                            'confidence_score': 8.5
+                        },
+                        'content_variations': content_variations or []
+                    }
+                    
+                    display_research_results(formatted_data, topic)
+                    
+                    # Show usage stats
+                    usage = api_manager.get_usage_stats()
+                    st.info(f"Today's API usage: Gemini: {usage.get('gemini', 0)}/100, HuggingFace: {usage.get('huggingface', 0)}/30")
+                    
+                    # Collect feedback
+                    collect_user_feedback(topic, formatted_data.get('content_variations', []))
+                    
+                    # Log successful request
+                    db.log_user_request(client_id, "live_research", topic, success=True)
+                    return
+                else:
+                    st.warning("Content safety check failed on generated content. Using cached example.")
+        
+        except Exception as e:
+            st.warning(f"Live research failed: {str(e)}. Using cached example.")
+            db.log_user_request(client_id, "live_research", topic, success=False)
+    
+    # Fallback to cached examples
     steps = [
-        "Analyzing trending discussions...",
-        "Gathering intelligence from TechCrunch...",
-        "Scanning Hacker News threads...",
-        "Checking Reddit communities...",
-        "Cross-referencing facts...",
-        "Generating content variations...",
-        "Calculating quality scores..."
+        "API limit reached, using cached research...",
+        "Loading comprehensive analysis...",
+        "Applying content filters...",
+        "Displaying results..."
     ]
     
     for i, step in enumerate(steps):
@@ -223,21 +467,23 @@ def research_topic(topic):
         progress_bar.progress((i + 1) / len(steps))
         time.sleep(0.3)
     
-    # Clear progress indicators
     progress_bar.empty()
     status_text.empty()
     
-    # Show results
     if topic_key in examples:
-        st.success("✅ Research completed!")
+        st.success("✅ Research completed (cached example)!")
         display_research_results(examples[topic_key], topic)
+        collect_user_feedback(topic, examples[topic_key].get('content_variations', []))
     else:
-        # Show default example for unknown topics
-        st.success("✅ Research completed! (Showing similar example)")
+        st.success("✅ Research completed (similar example)!")
         if examples and 'default' in examples:
             display_research_results(examples['default'], topic)
+            collect_user_feedback(topic, examples['default'].get('content_variations', []))
         else:
-            st.info("Demo data not available. The full version would research this topic in real-time.")
+            st.info("Demo data not available.")
+    
+    # Log request
+    db.log_user_request(client_id, "cached_research", topic, success=True)
 
 def display_research_results(data, topic):
     """Display formatted research results with full width"""
