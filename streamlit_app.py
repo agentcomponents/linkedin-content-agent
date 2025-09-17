@@ -181,7 +181,7 @@ Format as JSON with sections: trends, statistics, insights, impact, takeaways"""
         try:
             research_context = ""
             if research_data:
-                research_context = f"Based on this research: {json.dumps(research_data, indent=2)[:500]}"
+                research_context = f"Based on this research: {str(research_data)[:300]}"
             
             prompt = f"""Create a professional LinkedIn post about {topic}.
 
@@ -197,20 +197,32 @@ Requirements:
 
 Topic: {topic}"""
 
+            # Use text generation with proper model
             response = self.hf_client.text_generation(
                 prompt,
-                model="microsoft/DialoGPT-large",
-                max_new_tokens=300,
+                model="microsoft/DialoGPT-medium",
+                max_new_tokens=200,
                 temperature=0.7,
-                do_sample=True
+                return_full_text=False
             )
             
             self.log_api_usage('huggingface')
             return response
             
         except Exception as e:
-            st.error(f"Hugging Face API error: {e}")
-            return None
+            # Try alternative approach
+            try:
+                messages = [{"role": "user", "content": prompt}]
+                response = self.hf_client.chat_completion(
+                    messages=messages,
+                    model="microsoft/DialoGPT-medium",
+                    max_tokens=200
+                )
+                self.log_api_usage('huggingface')
+                return response.choices[0].message.content
+            except Exception as e2:
+                st.error(f"Hugging Face API error: {e2}")
+                return None
     
     def get_api_status(self) -> dict:
         """Get current API status and usage"""
@@ -534,8 +546,20 @@ def main_app():
                             else:
                                 st.markdown(f"**{key.title()}:** {value}")
                     else:
-                        st.error("❌ Research failed - using fallback")
-                        research_data = {"summary": f"General insights about {topic}"}
+                        st.warning("⚠️ Research failed - using cached example")
+                        # Use cached research
+                        cached_examples = load_cached_examples()
+                        example_key = topic if topic in cached_examples else list(cached_examples.keys())[0]
+                        example = cached_examples[example_key]
+                        research_data = example["research"]
+                        
+                        for key, value in research_data.items():
+                            if isinstance(value, list):
+                                st.markdown(f"**{key.title()}:**")
+                                for item in value:
+                                    st.markdown(f"• {item}")
+                            else:
+                                st.markdown(f"**{key.title()}:** {value}")
                 
                 with col2:
                     st.markdown("### ✍️ Generated Content")
@@ -550,11 +574,17 @@ def main_app():
                         st.markdown("**Copy to clipboard:**")
                         st.text_area("", value=content, height=150)
                     else:
-                        st.error("❌ Content generation failed")
+                        st.warning("⚠️ Content generation failed - showing cached example")
                         # Fallback to cached
                         cached_examples = load_cached_examples()
-                        example = list(cached_examples.values())[0]
-                        st.code(example["content"], language="")
+                        example_key = topic if topic in cached_examples else list(cached_examples.keys())[0]
+                        example = cached_examples[example_key]
+                        fallback_content = example["content"]
+                        st.code(fallback_content, language="")
+                        
+                        # Copy button for fallback
+                        st.markdown("**Copy to clipboard:**")
+                        st.text_area("", value=fallback_content, height=150)
     
     # Footer
     st.markdown("---")
