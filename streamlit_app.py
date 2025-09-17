@@ -283,8 +283,8 @@ How has remote work changed your productivity? Share your biggest lesson learned
 
 def check_admin_access():
     """Check if user should see admin interface"""
-    query_params = st.experimental_get_query_params()
-    return query_params.get("admin", [False])[0] == "true"
+    query_params = st.query_params
+    return query_params.get("admin", "false") == "true"
 
 def admin_login():
     """Handle admin authentication"""
@@ -382,14 +382,14 @@ def show_admin_dashboard():
     
     with col1:
         total_requests = gemini_status["usage_today"] + hf_status["usage_today"]
-        st.markdown(f'<div class="metric-card"><h3>{total_requests}</h3><p>Total Requests Today</p></div>', unsafe_allow_html=True)
+        st.metric("Total Requests Today", total_requests)
     
     with col2:
-        st.markdown('<div class="metric-card"><h3>0</h3><p>Unique Users</p></div>', unsafe_allow_html=True)
+        st.metric("Unique Users", "0")
     
     with col3:
         success_rate = "100%" if total_requests == 0 else "95%"
-        st.markdown(f'<div class="metric-card"><h3>{success_rate}</h3><p>Success Rate</p></div>', unsafe_allow_html=True)
+        st.metric("Success Rate", success_rate)
     
     # Admin Actions
     st.markdown("## Admin Actions")
