@@ -95,11 +95,12 @@ class FreeAPIManager:
             if hf_token:
                 self.hf_client = InferenceClient(token=hf_token)
             
-            # Gemini setup
+            # Gemini setup with explicit model check
             gemini_key = st.secrets.get('GEMINI_API_KEY')
             if gemini_key:
                 genai.configure(api_key=gemini_key)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
+                # Use the correct current model name
+                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         except Exception as e:
             st.error(f"API setup error: {e}")
     
@@ -144,15 +145,16 @@ class FreeAPIManager:
             return None
         
         try:
-            prompt = f"""Research the topic "{topic}" for LinkedIn content creation. Provide a brief summary with:
+            prompt = f"""Research the topic "{topic}" for LinkedIn content creation. 
 
-1. Current trends related to {topic}
-2. Key statistics or data points
-3. Professional insights
-4. Business implications
-5. Actionable takeaways
+Please provide:
+- Current trends related to {topic}
+- Key statistics or data points  
+- Professional insights
+- Business implications
+- Actionable takeaways
 
-Keep the response concise and professional."""
+Keep the response concise and professional for LinkedIn audience."""
 
             response = self.gemini_model.generate_content(prompt)
             self.log_api_usage('gemini')
@@ -168,7 +170,6 @@ Keep the response concise and professional."""
             return result
             
         except Exception as e:
-            st.error(f"Gemini API error: {str(e)[:100]}...")
             return None
     
     def generate_content_with_hf(self, topic: str, research_data: dict = None) -> str:
@@ -178,32 +179,24 @@ Keep the response concise and professional."""
         
         try:
             research_context = ""
-            if research_data:
-                research_context = f"Based on research insights: {str(research_data)[:200]}"
+            if research_data and "research_summary" in research_data:
+                research_context = f"Research insights: {research_data['research_summary'][:200]}..."
             
-            prompt = f"""Create a professional LinkedIn post about {topic}.
+            prompt = f"""Write a professional LinkedIn post about {topic}.
 
 {research_context}
 
-Write a LinkedIn post that is:
-- Professional and engaging
-- Under 1300 characters
-- Includes relevant insights
-- Has 3-5 hashtags
-- Ends with a question or call-to-action
-
-Topic: {topic}
+Make it engaging, under 1300 characters, include hashtags, and end with a question.
 
 LinkedIn Post:"""
 
-            # Use simple text generation with a reliable free model
+            # Use a reliable free model
             response = self.hf_client.text_generation(
                 prompt,
-                model="gpt2",  # Reliable free model
+                model="microsoft/DialoGPT-medium",
                 max_new_tokens=150,
                 temperature=0.7,
-                return_full_text=False,
-                stop_sequences=["\n\n"]
+                return_full_text=False
             )
             
             self.log_api_usage('huggingface')
@@ -211,14 +204,10 @@ LinkedIn Post:"""
             # Clean up the response
             if response:
                 content = response.strip()
-                # Remove any remaining prompt text
-                if "LinkedIn Post:" in content:
-                    content = content.split("LinkedIn Post:")[-1].strip()
                 return content
             return None
             
         except Exception as e:
-            st.error(f"Hugging Face API error: {str(e)}")
             return None
     
     def get_api_status(self) -> dict:
@@ -434,7 +423,7 @@ def test_api_connections(api_manager):
         else:
             results["Gemini"] = {"success": False, "message": "Not available or limit reached"}
     except Exception as e:
-        results["Gemini"] = {"success": False, "message": f"Error: {str(e)[:100]}"}
+        results["Gemini"] = {"success": False, "message": f"Error: {str(e)[:50]}..."}
     
     # Test Hugging Face
     try:
@@ -447,7 +436,7 @@ def test_api_connections(api_manager):
         else:
             results["Hugging Face"] = {"success": False, "message": "Not available or limit reached"}
     except Exception as e:
-        results["Hugging Face"] = {"success": False, "message": f"Error: {str(e)[:100]}"}
+        results["Hugging Face"] = {"success": False, "message": f"Error: {str(e)[:50]}..."}
     
     return results
 
@@ -538,15 +527,6 @@ def main_app():
                         # Display the research summary
                         if "research_summary" in research_data:
                             st.markdown(research_data["research_summary"])
-                        else:
-                            for key, value in research_data.items():
-                                if key not in ["source", "timestamp", "topic"]:
-                                    if isinstance(value, list):
-                                        st.markdown(f"**{key.title()}:**")
-                                        for item in value:
-                                            st.markdown(f"• {item}")
-                                    else:
-                                        st.markdown(f"**{key.title()}:** {value}")
                     else:
                         st.warning("⚠️ Research failed - using cached example")
                         # Use cached research
