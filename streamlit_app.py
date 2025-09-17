@@ -80,8 +80,8 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["🔍 Research Demo", "📈 Performance", "🛠️ How It Works", "💡 Examples"])
     
     with tab1:
-        col1, col2 = st.columns([2, 1])
-        
+    col1, col2 = st.columns([2, 1])
+    
         with col1:
             st.subheader("Try the Agent")
             
@@ -95,7 +95,8 @@ def main():
             # Research button
             if st.button("🔍 Research This Topic", type="primary", use_container_width=True):
                 if topic:
-                    research_topic(topic)
+                    st.session_state.research_topic = topic
+                    st.session_state.show_results = True
                 else:
                     st.warning("Please enter a topic to research")
             
@@ -104,13 +105,16 @@ def main():
             col_ex1, col_ex2, col_ex3 = st.columns(3)
             with col_ex1:
                 if st.button("AI Automation", use_container_width=True):
-                    research_topic("AI automation")
+                    st.session_state.research_topic = "AI automation"
+                    st.session_state.show_results = True
             with col_ex2:
                 if st.button("Remote Work", use_container_width=True):
-                    research_topic("remote work")
+                    st.session_state.research_topic = "remote work"
+                    st.session_state.show_results = True
             with col_ex3:
                 if st.button("Fintech", use_container_width=True):
-                    research_topic("fintech")
+                    st.session_state.research_topic = "fintech"
+                    st.session_state.show_results = True
         
         with col2:
             st.subheader("Demo Status")
@@ -118,6 +122,11 @@ def main():
             
             if st.button("📧 Get Full Version"):
                 st.success("Thanks for your interest! We'll notify you when the full version launches.")
+        
+        # Display results outside column context (full width)
+        if hasattr(st.session_state, 'show_results') and st.session_state.show_results:
+            research_topic(st.session_state.research_topic)
+            st.session_state.show_results = False
     
     with tab2:
         st.subheader("Performance Analytics")
