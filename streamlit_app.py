@@ -173,38 +173,59 @@ Keep the response concise and professional for LinkedIn audience."""
             return None
     
     def generate_content_with_hf(self, topic: str, research_data: dict = None) -> str:
-        """Generate LinkedIn content using Hugging Face"""
+        """Generate LinkedIn content using Hugging Face Serverless Inference API"""
         if not self.hf_client or not self.check_daily_limit('huggingface'):
             return None
         
         try:
             research_context = ""
             if research_data and "research_summary" in research_data:
-                research_context = f"Research insights: {research_data['research_summary'][:200]}..."
+                research_context = f"Research context: {research_data['research_summary'][:100]}"
             
-            prompt = f"""Write a professional LinkedIn post about {topic}.
-
-{research_context}
-
-Make it engaging, under 1300 characters, include hashtags, and end with a question.
-
-LinkedIn Post:"""
-
-            # Use a reliable free model
-            response = self.hf_client.text_generation(
-                prompt,
-                model="microsoft/DialoGPT-medium",
-                max_new_tokens=150,
-                temperature=0.7,
-                return_full_text=False
-            )
+            # Try direct API call to Hugging Face
+            try:
+                import requests
+                
+                api_url = "https://api-inference.huggingface.co/models/gpt2"
+                headers = {"Authorization": f"Bearer {st.secrets.get('HUGGINGFACE_TOKEN')}"}
+                
+                payload = {
+                    "inputs": f"LinkedIn post about {topic}: {research_context}\n\nPost:",
+                    "parameters": {
+                        "max_new_tokens": 100,
+                        "temperature": 0.8,
+                        "return_full_text": False
+                    }
+                }
+                
+                response = requests.post(api_url, headers=headers, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if isinstance(result, list) and len(result) > 0:
+                        content = result[0].get("generated_text", "").strip()
+                        self.log_api_usage('huggingface')
+                        return content if content else None
+                
+            except Exception:
+                pass
             
-            self.log_api_usage('huggingface')
+            # Fallback: Try with InferenceClient
+            try:
+                response = self.hf_client.text_generation(
+                    prompt=f"Write a LinkedIn post about {topic}:",
+                    model="gpt2",
+                    max_new_tokens=80,
+                    temperature=0.8,
+                    return_full_text=False
+                )
+                
+                self.log_api_usage('huggingface')
+                return response.strip() if response else None
+                
+            except Exception:
+                pass
             
-            # Clean up the response
-            if response:
-                content = response.strip()
-                return content
             return None
             
         except Exception as e:
