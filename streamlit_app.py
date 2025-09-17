@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import json
-import requests
+import requests  # Make sure requests is imported
 from datetime import datetime, timedelta
 import google.generativeai as genai
 from huggingface_hub import InferenceClient
@@ -180,51 +180,56 @@ Keep the response concise and professional for LinkedIn audience."""
         try:
             research_context = ""
             if research_data and "research_summary" in research_data:
-                research_context = f"Research context: {research_data['research_summary'][:100]}"
+                research_context = f"Context: {research_data['research_summary'][:100]}"
             
-            # Try direct API call to Hugging Face
+            # Method 1: Try InferenceClient with correct syntax (from HF docs)
             try:
-                import requests
+                prompt = f"Write a LinkedIn post about {topic}. {research_context}"
                 
-                api_url = "https://api-inference.huggingface.co/models/gpt2"
-                headers = {"Authorization": f"Bearer {st.secrets.get('HUGGINGFACE_TOKEN')}"}
-                
-                payload = {
-                    "inputs": f"LinkedIn post about {topic}: {research_context}\n\nPost:",
-                    "parameters": {
-                        "max_new_tokens": 100,
-                        "temperature": 0.8,
-                        "return_full_text": False
-                    }
-                }
-                
-                response = requests.post(api_url, headers=headers, json=payload, timeout=10)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if isinstance(result, list) and len(result) > 0:
-                        content = result[0].get("generated_text", "").strip()
-                        self.log_api_usage('huggingface')
-                        return content if content else None
-                
-            except Exception:
-                pass
-            
-            # Fallback: Try with InferenceClient
-            try:
                 response = self.hf_client.text_generation(
-                    prompt=f"Write a LinkedIn post about {topic}:",
+                    prompt,  # First parameter is the prompt string
                     model="gpt2",
                     max_new_tokens=80,
-                    temperature=0.8,
+                    temperature=0.7,
                     return_full_text=False
                 )
                 
-                self.log_api_usage('huggingface')
-                return response.strip() if response else None
-                
-            except Exception:
-                pass
+                if response and isinstance(response, str):
+                    self.log_api_usage('huggingface')
+                    return response.strip()
+                    
+            except Exception as e1:
+                # Method 2: Direct API call (from HF docs)
+                try:
+                    import requests
+                    
+                    api_url = "https://api-inference.huggingface.co/models/gpt2"
+                    headers = {"Authorization": f"Bearer {st.secrets.get('HUGGINGFACE_TOKEN')}"}
+                    
+                    payload = {
+                        "inputs": f"LinkedIn post about {topic}:",
+                        "parameters": {
+                            "max_new_tokens": 60,
+                            "temperature": 0.7,
+                            "return_full_text": False
+                        }
+                    }
+                    
+                    response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if isinstance(result, list) and len(result) > 0:
+                            content = result[0].get("generated_text", "").strip()
+                            if content:
+                                self.log_api_usage('huggingface')
+                                return content
+                    elif response.status_code == 503:
+                        # Model is loading, this is normal for free tier
+                        return None
+                        
+                except Exception as e2:
+                    pass
             
             return None
             
@@ -440,24 +445,63 @@ def test_api_connections(api_manager):
             if test_research:
                 results["Gemini"] = {"success": True, "message": "Research API working"}
             else:
-                results["Gemini"] = {"success": False, "message": "Research failed"}
+                results["Gemini"] = {"success": False, "message": "Research failed - no response"}
         else:
             results["Gemini"] = {"success": False, "message": "Not available or limit reached"}
     except Exception as e:
-        results["Gemini"] = {"success": False, "message": f"Error: {str(e)[:50]}..."}
+        results["Gemini"] = {"success": False, "message": f"Error: {str(e)[:100]}..."}
     
-    # Test Hugging Face
+    # Test Hugging Face with detailed error reporting
     try:
         if api_manager.hf_client and api_manager.check_daily_limit('huggingface'):
-            test_content = api_manager.generate_content_with_hf("test topic")
-            if test_content:
-                results["Hugging Face"] = {"success": True, "message": "Content generation working"}
-            else:
-                results["Hugging Face"] = {"success": False, "message": "Content generation failed"}
+            # Try direct API call first for better error reporting
+            try:
+                import requests
+                
+                api_url = "https://api-inference.huggingface.co/models/gpt2"
+                headers = {"Authorization": f"Bearer {st.secrets.get('HUGGINGFACE_TOKEN')}"}
+                
+                payload = {
+                    "inputs": "Test LinkedIn post about AI:",
+                    "parameters": {
+                        "max_new_tokens": 30,
+                        "temperature": 0.7,
+                        "return_full_text": False
+                    }
+                }
+                
+                response = requests.post(api_url, headers=headers, json=payload, timeout=15)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if isinstance(result, list) and len(result) > 0:
+                        results["Hugging Face"] = {"success": True, "message": "Direct API working"}
+                    else:
+                        results["Hugging Face"] = {"success": False, "message": f"API returned: {result}"}
+                elif response.status_code == 503:
+                    results["Hugging Face"] = {"success": False, "message": "Model loading (503) - try again in a moment"}
+                else:
+                    results["Hugging Face"] = {"success": False, "message": f"HTTP {response.status_code}: {response.text[:100]}"}
+                    
+            except requests.exceptions.Timeout:
+                results["Hugging Face"] = {"success": False, "message": "Request timeout - model may be loading"}
+            except Exception as e:
+                # Try InferenceClient as backup
+                try:
+                    test_content = api_manager.generate_content_with_hf("AI")
+                    if test_content:
+                        results["Hugging Face"] = {"success": True, "message": "InferenceClient working"}
+                    else:
+                        results["Hugging Face"] = {"success": False, "message": "InferenceClient failed - no content"}
+                except Exception as e2:
+                    results["Hugging Face"] = {"success": False, "message": f"Both methods failed: {str(e)[:50]}"}
         else:
-            results["Hugging Face"] = {"success": False, "message": "Not available or limit reached"}
+            if not api_manager.hf_client:
+                results["Hugging Face"] = {"success": False, "message": "Client not initialized - check HUGGINGFACE_TOKEN"}
+            else:
+                results["Hugging Face"] = {"success": False, "message": "Daily limit reached"}
     except Exception as e:
-        results["Hugging Face"] = {"success": False, "message": f"Error: {str(e)[:50]}..."}
+        results["Hugging Face"] = {"success": False, "message": f"Setup error: {str(e)[:50]}"}
     
     return results
 
