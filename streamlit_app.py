@@ -140,29 +140,37 @@ class FreeAPIManager:
             st.error(f"Usage logging error: {e}")
     
     def research_with_gemini(self, topic: str) -> dict:
-        """Use Gemini for research"""
+        """Use Gemini for research with clean, complete output"""
         if not self.gemini_model or not self.check_daily_limit('gemini'):
             return None
         
         try:
             prompt = f"""Research the topic "{topic}" for LinkedIn content creation. 
 
-Please provide:
-- Current trends related to {topic}
-- Key statistics or data points  
-- Professional insights
-- Business implications
-- Actionable takeaways
+Provide a comprehensive research summary that includes current trends, key statistics, and professional insights about {topic}. 
 
-Keep the response concise and professional for LinkedIn audience."""
+IMPORTANT REQUIREMENTS:
+- Write complete, factual information only
+- Do NOT include any bracketed placeholders like [verify this] or [source needed]  
+- Do NOT ask for additional information or images
+- Provide specific, concrete details and numbers when possible
+- Write in a confident, authoritative tone
+- Keep the research concise but substantive (200-300 words)
+
+Focus on: current market trends, recent developments, key statistics, business implications, and actionable insights that professionals would find valuable.
+
+Topic: {topic}"""
 
             response = self.gemini_model.generate_content(prompt)
             self.log_api_usage('gemini')
             
+            # Clean the response to remove any unwanted bracketed content
+            clean_text = self._clean_gemini_response(response.text)
+            
             # Return structured data
             result = {
-                "research_summary": response.text,
-                "source": "Gemini AI",
+                "research_summary": clean_text,
+                "source": "Gemini AI Research",
                 "timestamp": datetime.now().isoformat(),
                 "topic": topic
             }
@@ -171,6 +179,35 @@ Keep the response concise and professional for LinkedIn audience."""
             
         except Exception as e:
             return None
+    
+    def _clean_gemini_response(self, text: str) -> str:
+        """Clean Gemini response to remove bracketed placeholders and ensure LinkedIn-ready content"""
+        import re
+        
+        # Remove common bracketed placeholders
+        patterns_to_remove = [
+            r'\[verify.*?\]',
+            r'\[source.*?\]', 
+            r'\[citation.*?\]',
+            r'\[upload.*?\]',
+            r'\[image.*?\]',
+            r'\[insert.*?\]',
+            r'\[add.*?\]',
+            r'\[check.*?\]',
+            r'\[confirm.*?\]',
+            r'\[.*?needed.*?\]'
+        ]
+        
+        cleaned = text
+        for pattern in patterns_to_remove:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove extra whitespace and clean up formatting
+        cleaned = re.sub(r'\s+', ' ', cleaned)  # Multiple spaces to single space
+        cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned)  # Multiple newlines to double newline
+        cleaned = cleaned.strip()
+        
+        return cleaned
     
     def generate_content_with_hf(self, topic: str, research_data: dict = None) -> str:
         """Generate LinkedIn content - using cached examples due to HF API limitations"""
