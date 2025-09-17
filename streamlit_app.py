@@ -80,8 +80,8 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["🔍 Research Demo", "📈 Performance", "🛠️ How It Works", "💡 Examples"])
     
     with tab1:
-    col1, col2 = st.columns([2, 1])
-    
+        col1, col2 = st.columns([2, 1])
+        
         with col1:
             st.subheader("Try the Agent")
             
