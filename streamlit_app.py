@@ -39,6 +39,68 @@ st.markdown("""
     margin-bottom: 1.5rem;
 }
 
+.research-container {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: #22c55e;
+    margin-bottom: 10px;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.demo-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: #3b82f6;
+    margin-bottom: 10px;
+}
+
+.demo-dot {
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: blink 2s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
 .status-good {
     background-color: #d4edda;
     border: 1px solid #c3e6cb;
@@ -140,24 +202,26 @@ class FreeAPIManager:
             st.error(f"Usage logging error: {e}")
     
     def research_with_gemini(self, topic: str) -> dict:
-        """Use Gemini for research with clean, complete output"""
+        """Use Gemini for research with simple, engaging output"""
         if not self.gemini_model or not self.check_daily_limit('gemini'):
             return None
         
         try:
-            prompt = f"""Research the topic "{topic}" for LinkedIn content creation. 
+            prompt = f"""Research "{topic}" and explain it like you're talking to a friend over coffee. 
 
-Provide a comprehensive research summary that includes current trends, key statistics, and professional insights about {topic}. 
+Write at a 7th grade reading level using:
+- Short, simple sentences (max 15 words each)
+- Common, everyday words (avoid jargon)
+- Conversational tone - like explaining to a neighbor
+- 2-3 short paragraphs maximum
+- Make it interesting and easy to understand
 
-IMPORTANT REQUIREMENTS:
-- Write complete, factual information only
-- Do NOT include any bracketed placeholders like [verify this] or [source needed]  
-- Do NOT ask for additional information or images
-- Provide specific, concrete details and numbers when possible
-- Write in a confident, authoritative tone
-- Keep the research concise but substantive (200-300 words)
+Include:
+- What's happening right now with {topic}
+- Why people should care
+- One surprising fact or trend
 
-Focus on: current market trends, recent developments, key statistics, business implications, and actionable insights that professionals would find valuable.
+Write like a human, not a textbook. Keep it simple and engaging.
 
 Topic: {topic}"""
 
@@ -610,9 +674,9 @@ def main_app():
                     
                     if research_data:
                         st.success("✅ Research completed with Gemini AI")
-                        # Display the research summary
+                        # Display the research summary with proper text wrapping
                         if "research_summary" in research_data:
-                            st.markdown(research_data["research_summary"])
+                            st.markdown(f'<div class="research-container">{research_data["research_summary"]}</div>', unsafe_allow_html=True)
                     else:
                         st.warning("⚠️ Research failed - using cached example")
                         # Use cached research
